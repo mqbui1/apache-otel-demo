@@ -10,12 +10,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /tmp
 
-# Clone correct repo
 RUN git clone https://github.com/open-telemetry/opentelemetry-cpp.git
 
 WORKDIR /tmp/opentelemetry-cpp
 
-# Build OpenTelemetry C++ core
 RUN mkdir build && cd build \
     && cmake .. \
       -DBUILD_SHARED_LIBS=ON \
@@ -24,10 +22,9 @@ RUN mkdir build && cd build \
     && make -j4 \
     && make install
 
-# Build Apache module
 WORKDIR /tmp/opentelemetry-cpp/instrumentation/apache
 
-RUN apxs -c -i -a mod_opentelemetry.cpp \
+RUN apxs -c -i -a -n opentelemetry_module mod_opentelemetry.cpp \
     -I/usr/local/include \
     -L/usr/local/lib \
     -lopentelemetry_trace \
