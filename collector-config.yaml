@@ -1,0 +1,26 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+
+processors:
+  batch:
+
+exporters:
+
+  debug:
+    verbosity: detailed
+
+  otlphttp/splunk:
+    endpoint: https://ingest.us1.signalfx.com/v2/trace/otlp
+    headers:
+      X-SF-Token: ${SPLUNK_ACCESS_TOKEN}
+
+service:
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, otlphttp/splunk]

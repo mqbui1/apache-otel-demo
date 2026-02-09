@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./collector-config.yaml:/etc/otelcol/config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+
+  app:
+    build: ./app
+    environment:
+      OTEL_SERVICE_NAME: backend-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    depends_on:
+      - otel-collector
+
+  apache:
+    build: ./apache
+    ports:
+      - "8080:80"
+    depends_on:
+      - app
+      - otel-collector
