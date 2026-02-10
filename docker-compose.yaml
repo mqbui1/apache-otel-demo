@@ -1,7 +1,10 @@
+version: "3.8"
+
 services:
   apache:
     build:
-      context: ./apache
+      context: .
+      dockerfile: Dockerfile.apache
     container_name: apache
     ports:
       - "8080:80"
@@ -11,7 +14,8 @@ services:
 
   app:
     build:
-      context: ./app
+      context: .
+      dockerfile: Dockerfile.app
     container_name: app
     environment:
       FLASK_APP: app.py
@@ -20,11 +24,11 @@ services:
       - "5000:5000"
 
   otel-collector:
-    image: signalfx/splunk-otel-collector:0.145.0
+    image: quay.io/signalfx/splunk-otel-collector:latest
     container_name: otel-collector
     ports:
-      - "4317:4317"
-      - "4318:4318"
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
     environment:
       SPLUNK_ACCESS_TOKEN: ${SPLUNK_ACCESS_TOKEN}
       SPLUNK_REALM: "us1"
