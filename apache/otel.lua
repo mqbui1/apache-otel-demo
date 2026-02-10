@@ -13,13 +13,11 @@ end
 function log_request(r)
     local span = {
         resourceSpans = {{
-            resource = {},
             instrumentationLibrarySpans = {{
                 instrumentationLibrary = {name="apache-lua", version="0.1"},
                 spans = {{
                     traceId = random_hex(32),
                     spanId = random_hex(16),
-                    traceFlags = "01",
                     name = r.method .. " " .. r.uri,
                     kind = 2,
                     startTimeUnixNano = os.time() * 1e9,
@@ -47,7 +45,5 @@ function log_request(r)
         sink = ltn12.sink.table(resp)
     }
 
-    print("HTTP request ok:", ok)
-    print("HTTP status:", status)
-    print("HTTP response:", table.concat(resp or {}, ""))
+    r:err("Lua OTLP sent? status: " .. tostring(status) .. " ok: " .. tostring(ok))
 end
