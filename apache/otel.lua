@@ -1,61 +1,46 @@
--- OTEL Lua instrumentation for Apache
--- Full example for tracing HTTP requests
+-- otel.lua
+-- Apache Lua script for OpenTelemetry-style tracing
+-- Place in /usr/local/apache2/otel/otel.lua
 
--- Ensure apache2 constants are available
 local apache2 = require "apache2"
+local socket = require "socket"      -- optional, for timestamps
+local json = require "dkjson"        -- optional, for JSON formatting
 
--- Table to hold helper functions
-local otel = {}
-
--- Generate a simple trace ID
+-- Simple in-memory trace ID generator
 local function generate_trace_id()
-    local template ='xxxxxxxxxxxxxxxx'
-    return string.gsub(template, '[x]', function (c)
-        return string.format('%x', math.random(0, 15))
+    local random = math.random
+    local template ='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+    return string.gsub(template, 'x', function ()
+        return string.format('%x', random(0, 15))
     end)
 end
 
--- Generate a simple span ID
 local function generate_span_id()
+    local random = math.random
     local template ='xxxxxxxxxxxxxxxx'
-    return string.gsub(template, '[x]', function (c)
-        return string.format('%x', math.random(0, 15))
+    return string.gsub(template, 'x', function ()
+        return string.format('%x', random(0, 15))
     end)
 end
 
--- Function called on each request by LuaHookFixups
+-- Main hook function for LuaHookFixups
 function trace_request(r)
-    -- Generate IDs
-    local trace_id = generate_trace_id()
-    local span_id  = generate_span_id()
-
-    -- Capture basic request info
     local method = r.method
-    local uri    = r.uri
-    local headers = r.headers_in
+    local uri = r.uri
+    local trace_id = generate_trace_id()
+    local span_id = generate_span_id()
+    local timestamp = socket.gettime()
 
-    -- Set a custom response header
-    r.headers_out["X-OTEL-TraceId"] = trace_id
-    r.headers_out["X-OTEL-SpanId"]  = span_id
-
-    -- Log to Apache error log (for debugging)
+    -- Log to Apache error log
     r:err(string.format(
-        "OTEL TRACE: trace_id=%s span_id=%s method=%s uri=%s\n",
-        trace_id, span_id, method, uri
+        "OTEL TRACE: trace_id=%s span_id=%s method=%s uri=%s timestamp=%.6f",
+        trace_id, span_id, method, uri, timestamp
     ))
 
-    -- Return DECLINED so Apache continues normal processing
-    return apache2.DECLINED
-end
+    -- Optional: you could push to OTEL collector over HTTP/gRPC here
+    -- Example (pseudo-code):
+    -- send_to_otlp_collector({trace_id=trace_id, span_id=span_id, method=method, uri=uri, ts=timestamp})
 
--- Optionally, add more hooks for logging response or metrics
-function otel.log_response(r)
-    r:err(string.format(
-        "OTEL RESPONSE: trace_id=%s status=%d\n",
-        r.headers_out["X-OTEL-TraceId"] or "none",
-        r.status
-    ))
-    return apache2.DECLINED
+    -- Return numeric status to Apache (required)
+    return apache2.OK
 end
-
-return otel
