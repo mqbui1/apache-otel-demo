@@ -19,6 +19,9 @@ services:
     environment:
       FLASK_APP: app.py
       FLASK_RUN_HOST: 0.0.0.0
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"  # OTLP HTTP
+      OTEL_TRACES_EXPORTER: "otlp_proto_http"
+      OTEL_SERVICE_NAME: "flask-demo-app"
     ports:
       - "5000:5000"
 
