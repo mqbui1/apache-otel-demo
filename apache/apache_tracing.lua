@@ -1,76 +1,52 @@
-local http = require "socket.http"
-local ltn12 = require "ltn12"
-local json = require "dkjson"
+local http = require("socket.http")
+local ltn12 = require("ltn12")
+local json = require("dkjson")
 
-math.randomseed(os.time())
-
-function random_hex(len)
-local res = ""
-for i = 1, len do
-res = res .. string.format("%x", math.random(0,15))
+-- helper to create random hex IDs
+local function random_hex(len)
+    local res = {}
+    for i = 1, len do
+        for j = 1, len do
+            res[j] = string.format("%x", math.random(0, 15))
+        end
+    end
+    return table.concat(res)
 end
-return res
-end
 
-function trace_request(r)
-
-```
-local trace_id = random_hex(32)
-local span_id = random_hex(16)
-
-local traceparent =
-    "00-" .. trace_id .. "-" .. span_id .. "-01"
-
-local backend_url =
-    "http://app:5000" .. r.uri
-
-http.request{
-    url = backend_url,
-    method = "GET",
-    headers = {
-        ["traceparent"] = traceparent
-    }
-}
-
-local span = {
-    traceId = trace_id,
-    spanId = span_id,
-    name = "apache-request",
-    kind = 2,
-    attributes = {
-        {
-            key="service.name",
-            value={stringValue="apache"}
-        },
-        {
-            key="http.method",
-            value={stringValue=r.method}
-        },
-        {
-            key="http.target",
-            value={stringValue=r.uri}
-        }
-    }
-}
-
-local payload = json.encode({
-    resourceSpans = {{
-        scopeSpans = {{
-            spans = { span }
+function log_request(r)
+    local span = {
+        resourceSpans = {{
+            instrumentationLibrarySpans = {{
+                instrumentationLibrary = {name="apache-lua", version="0.1"},
+                spans = {{
+                    traceId = random_hex(32),
+                    spanId = random_hex(16),
+                    name = r.method .. " " .. r.uri,
+                    kind = 2,
+                    startTimeUnixNano = os.time() * 1e9,
+                    endTimeUnixNano = (os.time() + 0.001) * 1e9,
+                    attributes = {
+                        {key="http.method", value={stringValue=r.method}},
+                        {key="http.url", value={stringValue=r.unparsed_uri or ""}},
+                        {key="http.user_agent", value={stringValue=r.headers_in["User-Agent"] or ""}}
+                    }
+                }}
+            }}
         }}
-    }}
-})
+    }
 
-http.request{
-    url = "http://otel-collector:4318/v1/traces",
-    method = "POST",
-    headers = {
-        ["Content-Type"] = "application/json"
-    },
-    source = ltn12.source.string(payload)
-}
+    local payload = json.encode(span)
+    local resp = {}
+    local ok, status, headers = http.request{
+        url = "http://otel-collector:4318/v1/traces",
+        method = "POST",
+        headers = {
+            ["Content-Type"] = "application/json",
+            ["Content-Length"] = tostring(#payload)
+        },
+        source = ltn12.source.string(payload),
+        sink = ltn12.sink.table(resp)
+    }
 
-return apache2.OK
-```
-
+    r:err("Lua OTLP sent? status: " .. tostring(status) .. " ok: " .. tostring(ok))
 end
