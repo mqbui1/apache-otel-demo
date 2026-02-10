@@ -2,7 +2,6 @@ local http = require("socket.http")
 local ltn12 = require("ltn12")
 local json = require("dkjson")
 
--- helper to create random hex IDs
 local function random_hex(len)
     local res = {}
     for i = 1, len do
@@ -20,6 +19,7 @@ function log_request(r)
                 spans = {{
                     traceId = random_hex(32),
                     spanId = random_hex(16),
+                    traceFlags = "01",
                     name = r.method .. " " .. r.uri,
                     kind = 2,
                     startTimeUnixNano = os.time() * 1e9,
@@ -47,7 +47,7 @@ function log_request(r)
         sink = ltn12.sink.table(resp)
     }
 
-    if not ok then
-        r:log_error("Failed to send span: " .. tostring(status))
-    end
+    print("HTTP request ok:", ok)
+    print("HTTP status:", status)
+    print("HTTP response:", table.concat(resp or {}, ""))
 end
