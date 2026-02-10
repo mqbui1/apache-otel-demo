@@ -1,65 +1,61 @@
--- OpenTelemetry Lua script for Apache HTTPD
-local json = require("dkjson")
-local http = require("socket.http")
-local ltn12 = require("ltn12")
+-- OTEL Lua instrumentation for Apache
+-- Full example for tracing HTTP requests
 
-local OTEL_COLLECTOR = "http://otel-collector:4318/v1/traces"
+-- Ensure apache2 constants are available
+local apache2 = require "apache2"
 
-local function get_trace_context(r)
-    return r.headers_in["traceparent"], r.headers_in["tracestate"] or ""
+-- Table to hold helper functions
+local otel = {}
+
+-- Generate a simple trace ID
+local function generate_trace_id()
+    local template ='xxxxxxxxxxxxxxxx'
+    return string.gsub(template, '[x]', function (c)
+        return string.format('%x', math.random(0, 15))
+    end)
 end
 
-local function send_span(span)
-    local payload = {
-        resourceSpans = {{
-            resource = {
-                attributes = {
-                    { key = "service.name", value = { stringValue = "apache" } }
-                }
-            },
-            scopeSpans = {{
-                scope = { name = "apache-lua", version = "0.1" },
-                spans = { span }
-            }}
-        }}
-    }
-    local body = json.encode(payload)
-    local res, code = http.request{
-        url = OTEL_COLLECTOR,
-        method = "POST",
-        headers = {
-            ["Content-Type"] = "application/json",
-            ["Content-Length"] = tostring(#body)
-        },
-        source = ltn12.source.string(body),
-        sink = ltn12.sink.table({})
-    }
-    if code ~= 200 then
-        r:err("Failed to send span, status: "..tostring(code))
-    end
+-- Generate a simple span ID
+local function generate_span_id()
+    local template ='xxxxxxxxxxxxxxxx'
+    return string.gsub(template, '[x]', function (c)
+        return string.format('%x', math.random(0, 15))
+    end)
 end
 
-function handle_request(r)
-    local traceparent, tracestate = get_trace_context(r)
+-- Function called on each request by LuaHookFixups
+function trace_request(r)
+    -- Generate IDs
+    local trace_id = generate_trace_id()
+    local span_id  = generate_span_id()
 
-    local span = {
-        name = r.method.." "..r.unparsed_uri,
-        kind = "SPAN_KIND_SERVER",
-        startTimeUnixNano = os.time() * 1e9,
-        endTimeUnixNano = os.time() * 1e9,
-        attributes = {
-            { key = "http.method", value = { stringValue = r.method } },
-            { key = "http.target", value = { stringValue = r.unparsed_uri } },
-            { key = "http.status_code", value = { intValue = r.status or 200 } }
-        },
-        links = {},
-    }
+    -- Capture basic request info
+    local method = r.method
+    local uri    = r.uri
+    local headers = r.headers_in
 
-    if traceparent then
-        span.links[1] = { traceId = traceparent, traceState = tracestate }
-    end
+    -- Set a custom response header
+    r.headers_out["X-OTEL-TraceId"] = trace_id
+    r.headers_out["X-OTEL-SpanId"]  = span_id
 
-    send_span(span)
+    -- Log to Apache error log (for debugging)
+    r:err(string.format(
+        "OTEL TRACE: trace_id=%s span_id=%s method=%s uri=%s\n",
+        trace_id, span_id, method, uri
+    ))
+
+    -- Return DECLINED so Apache continues normal processing
+    return apache2.DECLINED
 end
 
-return handle_request
+-- Optionally, add more hooks for logging response or metrics
+function otel.log_response(r)
+    r:err(string.format(
+        "OTEL RESPONSE: trace_id=%s status=%d\n",
+        r.headers_out["X-OTEL-TraceId"] or "none",
+        r.status
+    ))
+    return apache2.DECLINED
+end
+
+return otel
