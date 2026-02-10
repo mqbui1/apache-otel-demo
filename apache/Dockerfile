@@ -24,10 +24,7 @@ RUN mkdir build && cd build \
 
 WORKDIR /tmp/opentelemetry-cpp/instrumentation/apache
 
-RUN apxs -c -i -a -n opentelemetry_module mod_opentelemetry.cpp \
-    -I/usr/local/include \
-    -L/usr/local/lib \
-    -lopentelemetry_trace \
-    -lopentelemetry_exporter_otlp_http
+RUN make
+RUN make install
 
 COPY httpd.conf /usr/local/apache2/conf/httpd.conf
