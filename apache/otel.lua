@@ -1,10 +1,8 @@
--- File: /usr/local/apache2/otel/otel.lua
-
 local http = require("socket.http")
 local ltn12 = require("ltn12")
 local json = require("dkjson")
 
--- helper to generate random IDs
+-- helper to create random hex IDs
 local function random_hex(len)
     local res = {}
     for i = 1, len do
@@ -14,20 +12,16 @@ local function random_hex(len)
 end
 
 function log_request(r)
-    -- create a minimal OTLP ResourceSpans payload
     local span = {
         resourceSpans = {{
-            resource = {},  -- empty resource
+            resource = {},
             instrumentationLibrarySpans = {{
-                instrumentationLibrary = {
-                    name = "apache-lua",
-                    version = "0.1"
-                },
+                instrumentationLibrary = {name="apache-lua", version="0.1"},
                 spans = {{
-                    traceId = random_hex(32),  -- 16 bytes in hex
-                    spanId = random_hex(16),   -- 8 bytes in hex
+                    traceId = random_hex(32),
+                    spanId = random_hex(16),
                     name = r.method .. " " .. r.uri,
-                    kind = 2, -- SERVER span
+                    kind = 2,
                     startTimeUnixNano = os.time() * 1e9,
                     endTimeUnixNano = (os.time() + 0.001) * 1e9,
                     attributes = {
@@ -41,9 +35,7 @@ function log_request(r)
     }
 
     local payload = json.encode(span)
-
-    -- send to OTLP HTTP endpoint
-    local response = {}
+    local resp = {}
     local ok, status, headers = http.request{
         url = "http://otel-collector:4318/v1/traces",
         method = "POST",
@@ -52,11 +44,10 @@ function log_request(r)
             ["Content-Length"] = tostring(#payload)
         },
         source = ltn12.source.string(payload),
-        sink = ltn12.sink.table(response)
+        sink = ltn12.sink.table(resp)
     }
 
-    -- optional debug
-    -- print("HTTP status:", status, table.concat(response))
-
-    return 0  -- Apache.OK
+    if not ok then
+        r:log_error("Failed to send span: " .. tostring(status))
+    end
 end
