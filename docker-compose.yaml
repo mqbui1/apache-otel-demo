@@ -1,41 +1,35 @@
-version: "3.9"
+version: "3.8"
 
 services:
   apache:
-    image: httpd:2.4
+    build:
+      context: .
+      dockerfile: Dockerfile.apache
     container_name: apache
     ports:
       - "8080:80"
-    volumes:
-      - ./httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
     depends_on:
       - app
       - otel-collector
 
   app:
     build:
-      context: ./app
+      context: .
+      dockerfile: Dockerfile.app
     container_name: app
     environment:
       FLASK_APP: app.py
+      FLASK_RUN_HOST: 0.0.0.0
     ports:
       - "5000:5000"
 
   otel-collector:
-    image: splunk/otel-collector:latest
+    image: signalfx/splunk-otel-collector:0.145.0
     container_name: otel-collector
     ports:
-      - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
     environment:
-      SPLUNK_ACCESS_TOKEN: ${SPLUNK_ACCESS_TOKEN}       # export before running
-      SPLUNK_REALM: us1                                 # update to your realm
-      SPLUNK_OBSERVABILITY_ENABLE_EBPF_INSTRUMENTATION: "true"
-      SPLUNK_OBSERVABILITY_ENABLE_PROFILING: "true"
-    cap_add:
-      - SYS_PTRACE   # required for eBPF
-      - NET_ADMIN    # optional for network tracing
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /lib/modules:/lib/modules:ro
+      SPLUNK_ACCESS_TOKEN: ${SPLUNK_ACCESS_TOKEN}
+      SPLUNK_REALM: "us1"
+    command: ["--config=/etc/otel-collector-config.yaml"]
