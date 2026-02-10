@@ -1,8 +1,10 @@
--- Accept two arguments: r (request) and phase
-function log_request(r, phase)
-    local http = require("socket.http")
-    local json = require("dkjson")
+-- File: /usr/local/apache2/otel/otel.lua
 
+local http = require("socket.http")
+local json = require("dkjson")
+
+-- Lua hook function for logging phase (takes r and phase)
+function log_request(r, phase)
     local span = {
         resourceSpans = {{
             instrumentationLibrarySpans = {{
@@ -22,6 +24,7 @@ function log_request(r, phase)
     }
 
     local payload = json.encode(span)
+
     http.request{
         url = "http://otel-collector:4318/v1/traces",
         method = "POST",
