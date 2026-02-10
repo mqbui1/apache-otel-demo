@@ -2,15 +2,17 @@ version: "3.8"
 
 services:
   apache:
-    image: httpd:2.4
+    build:
+      context: ./apache      # folder containing Dockerfile and httpd.conf
     container_name: apache
     ports:
       - "8080:80"
     depends_on:
       - app
       - otel-collector
-    volumes:
-        - ./httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
+    # optional if httpd.conf is copied inside Dockerfile
+    # volumes:
+    #   - ./apache/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
 
   app:
     build:
