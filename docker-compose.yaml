@@ -1,40 +1,30 @@
-version: "3.8"
+version: "3.9"
 
 services:
+  otel-collector:
+    image: quay.io/signalfx/splunk-otel-collector:latest
+    container_name: otel-collector
+    ports:
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    command: ["--config", "/etc/otel-collector-config.yaml"]
 
   apache:
-    build:
-      context: ./apache
-      dockerfile: Dockerfile
+    image: apache-otel-demo_apache:latest
     container_name: apache
     ports:
       - "8080:80"
+    volumes:
+      - ./otel:/usr/local/apache2/otel  # Lua script folder
     depends_on:
-      - app
       - otel-collector
 
-  app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile.app
+  flask-app:
+    image: apache-otel-demo_app:latest
     container_name: app
-    environment:
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
-      OTEL_SERVICE_NAME: "flask"
     ports:
       - "5000:5000"
-
-  otel-collector:
-    image: "quay.io/signalfx/splunk-otel-collector:latest"
-    container_name: otel-collector
-    environment:
-      SPLUNK_ACCESS_TOKEN: "${SPLUNK_ACCESS_TOKEN}"
-      SPLUNK_REALM: "us1"
-    volumes:
-      - ./collector-config.yaml:/etc/otel-collector-config.yaml:ro
-    command:
-      - "--config=/etc/otel-collector-config.yaml"
-    ports:
-      - "4317:4317"
-      - "4318:4318"
+    depends_on:
+      - otel-collector
