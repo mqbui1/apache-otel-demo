@@ -14,8 +14,8 @@ services:
 
   app:
     build:
-      context: .
-      dockerfile: Dockerfile.app
+      context: ./app
+      dockerfile: Dockerfile
     container_name: app
     environment:
       FLASK_APP: app.py
