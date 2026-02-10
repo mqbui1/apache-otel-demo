@@ -1,3 +1,11 @@
+extensions:
+  headers_setter:
+    headers:
+      - action: upsert
+        key: X-SF-TOKEN
+        from_context: X-SF-TOKEN
+        default_value: "${SPLUNK_ACCESS_TOKEN}"
+
 receivers:
   otlp:
     protocols:
@@ -18,6 +26,7 @@ exporters:
       authenticator: headers_setter
 
 service:
+  extensions: [headers_setter]
   pipelines:
     traces:
       receivers: [otlp]
