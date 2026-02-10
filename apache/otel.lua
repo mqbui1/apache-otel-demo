@@ -1,24 +1,19 @@
--- otel.lua: Sends OTEL spans to the collector via HTTP
+-- Accept two arguments: r (request) and phase
+function log_request(r, phase)
+    local http = require("socket.http")
+    local json = require("dkjson")
 
-local http = require("socket.http")
-local json = require("dkjson")
-
--- Collector endpoint
-local OTEL_COLLECTOR = "http://otel-collector:4318/v1/traces"
-
--- Function called by Apache on each request
-function log_request(r)
     local span = {
         resourceSpans = {{
             instrumentationLibrarySpans = {{
                 spans = {{
                     name = r.method .. " " .. r.uri,
-                    kind = 1,  -- CLIENT=1, SERVER=2
+                    kind = 2,  -- SERVER span
                     startTimeUnixNano = os.time() * 1e9,
                     endTimeUnixNano = (os.time() + 0.001) * 1e9,
                     attributes = {
                         {key="http.method", value={stringValue=r.method}},
-                        {key="http.url", value={stringValue=r.unparsed_uri}},
+                        {key="http.url", value={stringValue=r.unparsed_uri or ""}},
                         {key="http.user_agent", value={stringValue=r.headers_in["User-Agent"] or ""}}
                     }
                 }}
@@ -27,9 +22,8 @@ function log_request(r)
     }
 
     local payload = json.encode(span)
-    -- Fire-and-forget POST to collector
     http.request{
-        url = OTEL_COLLECTOR,
+        url = "http://otel-collector:4318/v1/traces",
         method = "POST",
         headers = {
             ["Content-Type"] = "application/json",
