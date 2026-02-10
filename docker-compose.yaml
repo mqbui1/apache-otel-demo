@@ -2,20 +2,19 @@ version: "3.8"
 
 services:
   apache:
-    build:
-      context: .
-      dockerfile: Dockerfile.apache
+    image: httpd:2.4
     container_name: apache
     ports:
       - "8080:80"
     depends_on:
       - app
       - otel-collector
+    volumes:
+      - ./httpd.conf:/usr/local/apache2/conf/httpd.conf
 
   app:
     build:
-      context: ./app
-      dockerfile: Dockerfile
+      context: .
     container_name: app
     environment:
       FLASK_APP: app.py
