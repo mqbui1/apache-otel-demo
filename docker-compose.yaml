@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  apache:
+    image: httpd:2.4
+    container_name: apache
+    ports:
+      - "8080:80"
+    depends_on:
+      - app
+      - otel-collector
+    volumes:
+        - ./httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.app
+    container_name: app
+    ports:
+      - "5000:5000"
+    environment:
+      SPLUNK_ACCESS_TOKEN: ${SPLUNK_ACCESS_TOKEN}
+
+  otel-collector:
+    image: quay.io/signalfx/splunk-otel-collector:latest
+    container_name: otel-collector
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    environment:
+      SPLUNK_ACCESS_TOKEN: ${SPLUNK_ACCESS_TOKEN}
+      SPLUNK_REALM: "us1"
+    volumes:
+      - ./collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    command: ["--config=/etc/otel-collector-config.yaml"]
