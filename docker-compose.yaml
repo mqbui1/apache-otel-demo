@@ -13,14 +13,17 @@ services:
       - ./httpd.conf:/usr/local/apache2/conf/httpd.conf
 
   app:
-    build:
-      context: .
+    image: python:3.11-slim
     container_name: app
+    working_dir: /app
+    volumes:
+      - ./:/app
     environment:
       FLASK_APP: app.py
       FLASK_RUN_HOST: 0.0.0.0
     ports:
       - "5000:5000"
+    command: ["flask", "run", "--host=0.0.0.0"]
 
   otel-collector:
     image: quay.io/signalfx/splunk-otel-collector:latest
