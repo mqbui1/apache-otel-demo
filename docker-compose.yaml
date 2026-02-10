@@ -1,29 +1,42 @@
-version: '3.8'
+version: "3.9"
 
 services:
-
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
-    command: ["--config=/etc/otelcol/config.yaml"]
-    volumes:
-      - ./collector-config.yaml:/etc/otelcol/config.yaml
-    ports:
-      - "4317:4317"
-      - "4318:4318"
-
-  app:
-    build: ./app
-    environment:
-      OTEL_SERVICE_NAME: backend-service
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-    depends_on:
-      - otel-collector
-
   apache:
-    build: ./apache
+    image: httpd:2.4
+    container_name: apache
     ports:
       - "8080:80"
+    volumes:
+      - ./httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
     depends_on:
       - app
       - otel-collector
+
+  app:
+    build:
+      context: ./app
+    container_name: app
+    environment:
+      FLASK_APP: app.py
+    ports:
+      - "5000:5000"
+
+  otel-collector:
+    image: ghcr.io/signalfx/splunk-otel-collector:latest
+    container_name: otel-collector
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "55681:55681" # optional: metrics/trace
+    environment:
+      SPLUNK_ACCESS_TOKEN: ${SPLUNK_ACCESS_TOKEN}       # your Splunk token
+      SPLUNK_REALM: us1                                 # update to your realm
+      SPLUNK_OBSERVABILITY_ENABLE_EBPF_INSTRUMENTATION: "true"
+      SPLUNK_OBSERVABILITY_ENABLE_PROFILING: "true"
+    cap_add:
+      - SYS_PTRACE   # required for eBPF
+      - NET_ADMIN    # optional for network tracing
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /lib/modules:/lib/modules:ro
