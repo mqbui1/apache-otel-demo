@@ -1,38 +1,39 @@
 version: "3.8"
 
 services:
-  apache:
-    build:
-      context: ./apache      # folder containing Dockerfile and httpd.conf
-    container_name: apache
-    ports:
-      - "8080:80"
-    depends_on:
-      - app
-      - otel-collector
-    # optional if httpd.conf is copied inside Dockerfile
-    # volumes:
-    #   - ./apache/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
 
-  app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile.app
-    container_name: app
-    ports:
-      - "5000:5000"
-    environment:
-      SPLUNK_ACCESS_TOKEN: ${SPLUNK_ACCESS_TOKEN}
+apache:
+build:
+context: ./apache
+dockerfile: Dockerfile
+container_name: apache
+ports:
+- "8080:80"
+depends_on:
+- app
+- otel-collector
 
-  otel-collector:
-    image: quay.io/signalfx/splunk-otel-collector:latest
-    container_name: otel-collector
-    ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
-    environment:
-      SPLUNK_ACCESS_TOKEN: ${SPLUNK_ACCESS_TOKEN}
-      SPLUNK_REALM: "us1"
-    volumes:
-      - ./collector-config.yaml:/etc/otel-collector-config.yaml:ro
-    command: ["--config=/etc/otel-collector-config.yaml"]
+app:
+build:
+context: ./app
+dockerfile: Dockerfile.app
+container_name: app
+environment:
+OTEL_EXPORTER_OTLP_ENDPOINT: [http://otel-collector:4318](http://otel-collector:4318)
+OTEL_SERVICE_NAME: flask
+OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+ports:
+- "5000:5000"
+
+otel-collector:
+image: quay.io/signalfx/splunk-otel-collector:latest
+container_name: otel-collector
+environment:
+SPLUNK_ACCESS_TOKEN: ${SPLUNK_ACCESS_TOKEN}
+SPLUNK_REALM: us1
+volumes:
+- ./collector-config.yaml:/etc/otel-collector-config.yaml
+command: ["--config=/etc/otel-collector-config.yaml"]
+ports:
+- "4317:4317"
+- "4318:4318"
