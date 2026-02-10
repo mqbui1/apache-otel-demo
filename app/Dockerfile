@@ -1,18 +1,10 @@
 FROM python:3.11-slim
 
-RUN pip install \
-    flask \
-    opentelemetry-api \
-    opentelemetry-sdk \
-    opentelemetry-exporter-otlp \
-    opentelemetry-instrumentation-flask
+WORKDIR /app
 
-COPY app.py /
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-ENV OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+COPY . .
 
-CMD opentelemetry-instrument \
-    --traces_exporter otlp \
-    --metrics_exporter none \
-    --logs_exporter none \
-    python /app.py
+CMD ["flask", "run", "--host=0.0.0.0"]
