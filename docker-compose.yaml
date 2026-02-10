@@ -8,15 +8,17 @@ services:
       - "8080:80"
     depends_on:
       - app
-      - otel-collector
     volumes:
-      - ./httpd.conf:/usr/local/apache2/conf/httpd.conf
+      - ./httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
 
   app:
     build:
       context: .
       dockerfile: Dockerfile.app
     container_name: app
+    environment:
+      FLASK_APP: app.py
+      FLASK_RUN_HOST: 0.0.0.0
     ports:
       - "5000:5000"
 
@@ -29,4 +31,6 @@ services:
     environment:
       SPLUNK_ACCESS_TOKEN: ${SPLUNK_ACCESS_TOKEN}
       SPLUNK_REALM: "us1"
+    volumes:
+      - ./collector-config.yaml:/etc/otel-collector-config.yaml:ro
     command: ["--config=/etc/otel-collector-config.yaml"]
