@@ -1,28 +1,41 @@
+-- otel.lua: Sends OTEL spans to the collector via HTTP
+
 local http = require("socket.http")
 local json = require("dkjson")
 
-function log(r)
-    local trace = {
-        name = r.uri,
-        kind = 1,  -- SERVER
-        startTimeUnixNano = os.clock() * 1e9,
-        endTimeUnixNano = os.clock() * 1e9 + 1000,  -- placeholder
-        attributes = {
-            { key = "http.method", value = { stringValue = r.method } },
-            { key = "http.url", value = { stringValue = r.uri } }
-        }
+-- Collector endpoint
+local OTEL_COLLECTOR = "http://otel-collector:4318/v1/traces"
+
+-- Function called by Apache on each request
+function log_request(r)
+    local span = {
+        resourceSpans = {{
+            instrumentationLibrarySpans = {{
+                spans = {{
+                    name = r.method .. " " .. r.uri,
+                    kind = 1,  -- CLIENT=1, SERVER=2
+                    startTimeUnixNano = os.time() * 1e9,
+                    endTimeUnixNano = (os.time() + 0.001) * 1e9,
+                    attributes = {
+                        {key="http.method", value={stringValue=r.method}},
+                        {key="http.url", value={stringValue=r.unparsed_uri}},
+                        {key="http.user_agent", value={stringValue=r.headers_in["User-Agent"] or ""}}
+                    }
+                }}
+            }}
+        }}
     }
 
-    -- Print to Apache log
-    r:warn("OTEL TRACE: " .. json.encode(trace))
-
-    -- Send to OTEL collector
-    local body = json.encode({ spans = { trace } })
-    local _, code = http.request{
-        url = "http://otel-collector:4318/v1/traces",
+    local payload = json.encode(span)
+    -- Fire-and-forget POST to collector
+    http.request{
+        url = OTEL_COLLECTOR,
         method = "POST",
-        headers = { ["Content-Type"] = "application/json" },
-        source = ltn12.source.string(body),
-        sink = ltn12.sink.null()
+        headers = {
+            ["Content-Type"] = "application/json",
+            ["Content-Length"] = tostring(#payload)
+        },
+        source = ltn12.source.string(payload),
+        sink = ltn12.sink.table({})
     }
 end
