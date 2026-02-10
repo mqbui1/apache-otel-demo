@@ -11,7 +11,7 @@ processors:
 
 exporters:
   otlp_http/splunk:
-    endpoint: https://ingest.us1.signalfx.com/v2/trace
+    endpoint: https://ingest.us1.signalfx.com
     headers:
       X-SF-TOKEN: ${SPLUNK_ACCESS_TOKEN}
 
