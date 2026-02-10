@@ -10,14 +10,16 @@ processors:
   batch:
 
 exporters:
-  otlp_http/splunk:
-    endpoint: https://ingest.us1.signalfx.com
+  otlp_http:
+    traces_endpoint: "https://ingest.us1.signalfx.com/v2/trace/otlp"
     headers:
-      X-SF-TOKEN: ${SPLUNK_ACCESS_TOKEN}
+      "X-SF-Token": "${SPLUNK_ACCESS_TOKEN}"
+    auth:
+      authenticator: headers_setter
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp_http/splunk]
+      exporters: [otlp_http]
